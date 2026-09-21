@@ -17,7 +17,7 @@ At Head Tag stores one trusted source snippet and prints it inside clear source 
 <!-- at-head-tag END -->
 ```
 
-The settings screen provides a WordPress code editor, an enable/disable switch, configurable hook priority, escaped output preview and non-blocking lint feedback for common head-code mistakes.
+The settings screen provides a WordPress code editor, an enable/disable switch, configurable hook priority, escaped output preview, non-blocking lint feedback for common head-code mistakes, and a real front-end output check.
 
 ## Security model
 
@@ -52,7 +52,7 @@ Existing installations of the earlier single-file plugin should install the rele
 
 Stable updates are delivered from this public GitHub repository using WordPress's `Update URI` integration. Update checks contact `api.github.com`; package downloads use `github.com`. Saved head code is never sent to GitHub.
 
-The settings screen includes **Check updates now**, which uses WordPress's explicit update refresh and clears both the plugin release cache and WordPress plugin-update state before the new check.
+The settings screen includes **Check updates now**, which uses WordPress's explicit update refresh and clears both the plugin release cache and WordPress plugin-update state before the new check. It also includes **Check front-end output**, which fetches the home page with a cache-busting query and confirms whether the saved snippet is actually present inside `<head>`.
 
 ## Development
 
