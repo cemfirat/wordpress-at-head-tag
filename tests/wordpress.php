@@ -40,15 +40,26 @@ $release = array(
 	) ),
 );
 $GLOBALS['aht_release'] = $release;
+$GLOBALS['aht_home_body'] = '<html><head>' . at_head_tag_render_preview_block( $snippet ) . '</head><body></body></html>';
 add_filter( 'pre_http_request', function ( $preempt, $args, $url ) {
 	if ( At_Head_Tag_Updater::API_URL === $url ) {
 		return array( 'headers' => array(), 'response' => array( 'code' => 200 ), 'body' => wp_json_encode( $GLOBALS['aht_release'] ) );
+	}
+	if ( false !== strpos( $url, 'at-head-tag-check=' ) ) {
+		return array( 'headers' => array(), 'response' => array( 'code' => 200 ), 'body' => $GLOBALS['aht_home_body'] );
 	}
 	if ( false !== strpos( $url, 'api.wordpress.org/plugins/update-check/' ) ) {
 		return array( 'headers' => array(), 'response' => array( 'code' => 200 ), 'body' => wp_json_encode( array( 'plugins' => array(), 'no_update' => array(), 'translations' => array() ) ) );
 	}
 	return $preempt;
 }, 10, 3 );
+
+aht_assert( 'success' === at_head_tag_check_frontend_output(), 'Front-end diagnostics find the exact saved snippet inside head.' );
+$GLOBALS['aht_home_body'] = '<html><head>' . $snippet . '</head><body></body></html>';
+aht_assert( 'markers-changed' === at_head_tag_check_frontend_output(), 'Front-end diagnostics identify rewritten source markers without calling the snippet missing.' );
+$GLOBALS['aht_home_body'] = '<html><head><title>Test</title></head><body></body></html>';
+aht_assert( 'missing' === at_head_tag_check_frontend_output(), 'Front-end diagnostics report a genuinely missing snippet.' );
+$GLOBALS['aht_home_body'] = '<html><head>' . at_head_tag_render_preview_block( $snippet ) . '</head><body></body></html>';
 
 $refresh = ( new ReflectionClass( 'At_Head_Tag_Updater' ) )->newInstanceWithoutConstructor();
 set_site_transient( At_Head_Tag_Updater::CACHE_KEY, array( 'version' => AT_HEAD_TAG_VERSION ), HOUR_IN_SECONDS );
