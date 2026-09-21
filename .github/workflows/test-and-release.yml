@@ -164,10 +164,7 @@ jobs:
           set -euo pipefail
           current_version="$(php -r '$text=file_get_contents("at-head-tag.php"); preg_match("/^ \\* Version: ([0-9.]+)$/m",$text,$m); echo $m[1];')"
           current_tag="v$current_version"
-          previous_tag="$(gh release list --limit 20 --json tagName --jq '[.[].tagName | select(. != env.current_tag)][0]' 2>/dev/null || true)"
-          if [ -z "$previous_tag" ] || [ "$previous_tag" = "null" ]; then
-            previous_tag="$(gh release list --limit 20 --json tagName --jq ".[] | select(.tagName != \"$current_tag\") | .tagName" | head -n1)"
-          fi
+          previous_tag="$(gh release list --limit 20 --json tagName --jq ".[] | select(.tagName != \"$current_tag\") | .tagName" | head -n1)"
           test -n "$previous_tag"
           previous_version="${previous_tag#v}"
           mkdir -p "$RUNNER_TEMP/previous-release"
