@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+- Add a post-release production smoke test that installs the previous public release and updates it through the real GitHub updater.
+- Verify the public `releases/latest` endpoint, WordPress update discovery, release ZIP download, directory preservation and final installed version together.
+- No runtime behavior changes from 1.4.0.
+
 ## 1.4.0
 
 - Replace the TinyMCE-based editor with WordPress's source code editor so trusted source snippets are not rewritten by a visual editor.
