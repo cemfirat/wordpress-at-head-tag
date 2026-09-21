@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.2
+
+- Add a **Check front-end output** diagnostic to the settings page.
+- Fetch the home page with cache-busting/no-cache headers and verify the saved snippet inside the real `<head>`.
+- Distinguish exact output from marker rewriting by caches/minifiers, disabled output, fetch/HTTP problems and genuinely missing code.
+- Add dependency-free and real WordPress integration coverage for the diagnostic states.
+
 ## 1.4.1
 
 - Add a post-release production smoke test that installs the previous public release and updates it through the real GitHub updater.
