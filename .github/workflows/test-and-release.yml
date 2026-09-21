@@ -130,3 +130,79 @@ jobs:
           fi
           gh release upload "$RELEASE_TAG" dist/at-head-tag.zip --clobber
           gh release edit "$RELEASE_TAG" --notes-file dist/release-notes.md --draft=false --latest
+
+
+  production_update:
+    name: Production updater smoke test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: wordpress
+          MYSQL_DATABASE: wordpress
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pwordpress"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, dom, zip
+          tools: wp-cli:2.12.0
+          coverage: none
+      - name: Install WordPress and previous public release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_version="$(php -r '$text=file_get_contents("at-head-tag.php"); preg_match("/^ \\* Version: ([0-9.]+)$/m",$text,$m); echo $m[1];')"
+          current_tag="v$current_version"
+          previous_tag="$(gh release list --limit 20 --json tagName --jq ".[] | select(.tagName != \"$current_tag\") | .tagName" | head -n1)"
+          test -n "$previous_tag"
+          previous_version="${previous_tag#v}"
+          mkdir -p "$RUNNER_TEMP/previous-release"
+          gh release download "$previous_tag" --pattern at-head-tag.zip --dir "$RUNNER_TEMP/previous-release"
+          wp core download --path="$RUNNER_TEMP/wordpress" --version=latest
+          wp config create --path="$RUNNER_TEMP/wordpress" --dbname=wordpress --dbuser=root --dbpass=wordpress --dbhost=127.0.0.1:3306
+          wp core install --path="$RUNNER_TEMP/wordpress" --url=http://127.0.0.1:8080 --title=UpdaterTest --admin_user=admin --admin_password=integration-only --admin_email=test@example.com --skip-email
+          wp plugin install "$RUNNER_TEMP/previous-release/at-head-tag.zip" --activate --path="$RUNNER_TEMP/wordpress"
+          installed="$(wp plugin get wordpress-at-head-tag --field=version --path="$RUNNER_TEMP/wordpress")"
+          test "$installed" = "$previous_version"
+          printf 'PREVIOUS_VERSION=%s\nCURRENT_VERSION=%s\n' "$previous_version" "$current_version" >> "$GITHUB_ENV"
+      - name: Discover current public release through the plugin updater
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if wp eval '
+              delete_site_transient( At_Head_Tag_Updater::CACHE_KEY );
+              delete_site_transient( "update_plugins" );
+              wp_update_plugins();
+              $updates = get_site_transient( "update_plugins" );
+              $basename = plugin_basename( AT_HEAD_TAG_FILE );
+              if ( isset( $updates->response[ $basename ] ) ) {
+                echo $updates->response[ $basename ]->new_version;
+                exit( 0 );
+              }
+              exit( 1 );
+            ' --path="$RUNNER_TEMP/wordpress" | grep -Fx "$CURRENT_VERSION"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "The previous public release did not discover $CURRENT_VERSION through GitHub."
+          exit 1
+      - name: Update through WordPress and verify installed version
+        run: |
+          set -euo pipefail
+          wp plugin update wordpress-at-head-tag --path="$RUNNER_TEMP/wordpress"
+          installed="$(wp plugin get wordpress-at-head-tag --field=version --path="$RUNNER_TEMP/wordpress")"
+          test "$installed" = "$CURRENT_VERSION"
+          wp plugin is-active wordpress-at-head-tag --path="$RUNNER_TEMP/wordpress"
+          echo "PASS: At Head Tag $PREVIOUS_VERSION updated through the public GitHub release to $CURRENT_VERSION."

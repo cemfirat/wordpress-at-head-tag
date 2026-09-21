@@ -3,7 +3,7 @@ Contributors: cemfirat
 Tags: head, html, javascript, css, meta
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -54,6 +54,10 @@ Yes. Disable output in Settings > At Head Tag. The saved source remains stored.
 Stable releases are discovered through the plugin's GitHub Update URI integration. The settings page includes a Check updates now link for an explicit fresh update scan.
 
 == Changelog ==
+
+= 1.4.1 =
+* Add a post-release production smoke test that installs the previous public release and updates it through the real GitHub updater.
+* Verify the public releases/latest endpoint, WordPress update discovery, ZIP download, directory preservation and final installed version together.
 
 = 1.4.0 =
 * Replace the TinyMCE-based editor with WordPress's source code editor so snippets are not rewritten by a visual editor.
