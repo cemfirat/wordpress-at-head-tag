@@ -3,7 +3,7 @@ Contributors: cemfirat
 Tags: head, html, javascript, css, meta
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ Version 1.4 adds a source-safe WordPress code editor, enable/disable switch, con
 
 Raw code editing requires both manage_options and unfiltered_html. On Multisite this normally requires a Super Admin. Unauthorized changes retain the previously saved snippet.
 
-The plugin can warn about common head-code issues such as content elements inside head, duplicate charset/title elements, HTTP resources, preload links without an as attribute and external scripts without async/defer.
+The plugin can warn about common head-code issues such as content elements inside head, duplicate charset/title elements, HTTP resources, preload links without an as attribute and external scripts without async/defer. Diagnostics can also fetch the home page and verify whether the saved snippet is really present inside head.
 
 Stable updates are delivered from the public GitHub repository. Update checks contact api.github.com and package downloads use github.com. Saved head code is not sent to GitHub.
 
@@ -54,6 +54,12 @@ Yes. Disable output in Settings > At Head Tag. The saved source remains stored.
 Stable releases are discovered through the plugin's GitHub Update URI integration. The settings page includes a Check updates now link for an explicit fresh update scan.
 
 == Changelog ==
+
+= 1.4.2 =
+* Add a Check front-end output diagnostic that fetches the home page with a cache-busting query.
+* Verify that the saved snippet is really present inside the fetched head section.
+* Distinguish between exact output, optimization layers that only rewrite source markers, disabled output and genuinely missing code.
+* Add dependency-free and real WordPress coverage for the diagnostic states.
 
 = 1.4.1 =
 * Add a post-release production smoke test that installs the previous public release and updates it through the real GitHub updater.

@@ -3,7 +3,7 @@
  * Plugin Name: At Head Tag
  * Plugin URI: https://github.com/cemfirat/wordpress-at-head-tag
  * Description: Adds trusted HTML, CSS, JavaScript, meta and link snippets to the front-end <head> in WordPress.
- * Version: 1.4.1
+ * Version: 1.4.2
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Author: Cem Firat
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AT_HEAD_TAG_VERSION', '1.4.1' );
+define( 'AT_HEAD_TAG_VERSION', '1.4.2' );
 define( 'AT_HEAD_TAG_FILE', __FILE__ );
 define( 'AT_HEAD_TAG_OPTION', 'at_head_tag_content' );
 define( 'AT_HEAD_TAG_PRIORITY_OPTION', 'at_head_tag_priority' );
@@ -33,6 +33,7 @@ add_action( 'admin_init', 'at_head_tag_register_settings' );
 add_action( 'admin_menu', 'at_head_tag_menu' );
 add_action( 'admin_enqueue_scripts', 'at_head_tag_admin_assets' );
 add_action( 'init', 'at_head_tag_bootstrap_head_hook' );
+add_action( 'admin_post_at_head_tag_check_output', 'at_head_tag_handle_output_check' );
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'at_head_tag_action_links' );
 
 /** Add defaults without overwriting existing installations. */
@@ -201,6 +202,88 @@ function at_head_tag_render_preview_block( $code ) {
 	return "<!-- at-head-tag START -->\n" . $code . "\n<!-- at-head-tag END -->";
 }
 
+/**
+ * Check the real home-page HTML for the saved head snippet.
+ *
+ * Returns a short status code that can safely be carried through an admin redirect.
+ */
+function at_head_tag_check_frontend_output() {
+	if ( ! (bool) get_option( AT_HEAD_TAG_ENABLED_OPTION, 1 ) ) {
+		return 'disabled';
+	}
+	$code = get_option( AT_HEAD_TAG_OPTION, '' );
+	if ( ! is_string( $code ) || '' === $code ) {
+		return 'empty';
+	}
+
+	$url = add_query_arg( 'at-head-tag-check', (string) time(), home_url( '/' ) );
+	$response = wp_remote_get(
+		$url,
+		array(
+			'timeout'     => 10,
+			'redirection' => 3,
+			'headers'     => array(
+				'Cache-Control' => 'no-cache',
+				'Pragma'        => 'no-cache',
+			),
+		)
+	);
+	if ( is_wp_error( $response ) ) {
+		return 'fetch-error';
+	}
+	$status = (int) wp_remote_retrieve_response_code( $response );
+	if ( $status < 200 || $status >= 400 ) {
+		return 'http-error';
+	}
+	$body = wp_remote_retrieve_body( $response );
+	if ( ! is_string( $body ) || ! preg_match( '/<head\\b[^>]*>(.*?)<\\/head>/is', $body, $match ) ) {
+		return 'no-head';
+	}
+
+	$head = $match[1];
+	if ( false !== strpos( $head, at_head_tag_render_preview_block( $code ) ) ) {
+		return 'success';
+	}
+	if ( false !== strpos( $head, $code ) ) {
+		return 'markers-changed';
+	}
+	return 'missing';
+}
+
+/** Human-readable output-check notice for a known status code. */
+function at_head_tag_output_check_notice( $status ) {
+	$messages = array(
+		'success'         => array( 'success', 'The saved snippet was found exactly inside the home page <head>.' ),
+		'markers-changed' => array( 'warning', 'The saved snippet is present in the home page <head>, but its source markers were changed or removed. A cache or optimization layer may be rewriting HTML.' ),
+		'disabled'        => array( 'warning', 'Output is currently disabled. Enable the head snippet before checking the front end.' ),
+		'empty'           => array( 'warning', 'There is no saved head snippet to check.' ),
+		'fetch-error'     => array( 'error', 'WordPress could not request the home page. A firewall, authentication layer or local HTTP configuration may be blocking the self-request.' ),
+		'http-error'      => array( 'error', 'The home page returned an HTTP error during the output check.' ),
+		'no-head'         => array( 'error', 'The fetched home page did not contain a readable <head> section.' ),
+		'missing'         => array( 'error', 'The saved snippet was not found exactly inside the fetched home page <head>. Check page caching, optimization/minification and theme output.' ),
+	);
+	return isset( $messages[ $status ] ) ? $messages[ $status ] : false;
+}
+
+/** Run the front-end check from wp-admin and return to the settings page. */
+function at_head_tag_handle_output_check() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( 'You are not allowed to check this output.' );
+	}
+	check_admin_referer( 'at_head_tag_check_output' );
+	$status = at_head_tag_check_frontend_output();
+	wp_safe_redirect(
+		add_query_arg(
+			array(
+				'page'              => 'at-head-tag',
+				'at_head_tag_check' => $status,
+			),
+			admin_url( 'options-general.php' )
+		)
+	);
+	exit;
+}
+
 function at_head_tag_options_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
@@ -213,7 +296,17 @@ function at_head_tag_options_page() {
 	<div class="wrap">
 		<h1>At Head Tag</h1>
 		<p>Add trusted HTML, CSS, JavaScript, meta or link snippets to the front-end <code>&lt;head&gt;</code>.</p>
-		<?php settings_errors( 'at_head_tag_options_group' ); ?>
+		<?php
+		settings_errors( 'at_head_tag_options_group' );
+		if ( isset( $_GET['at_head_tag_check'] ) ) {
+			$check_status = sanitize_key( wp_unslash( $_GET['at_head_tag_check'] ) );
+			$check_notice = at_head_tag_output_check_notice( $check_status );
+			if ( $check_notice ) {
+				add_settings_error( 'at_head_tag_output_check', 'at_head_tag_output_check_' . $check_status, $check_notice[1], $check_notice[0] );
+				settings_errors( 'at_head_tag_output_check' );
+			}
+		}
+		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'at_head_tag_options_group' ); ?>
 			<table class="form-table" role="presentation">
@@ -258,6 +351,12 @@ function at_head_tag_options_page() {
 		<h2>Diagnostics</h2>
 		<p>Installed version: <strong><?php echo esc_html( AT_HEAD_TAG_VERSION ); ?></strong></p>
 		<p>Update source: <a href="https://github.com/cemfirat/wordpress-at-head-tag/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a> · <a href="<?php echo esc_url( admin_url( 'update-core.php?force-check=1' ) ); ?>">Check updates now</a></p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:12px 0 18px">
+			<input type="hidden" name="action" value="at_head_tag_check_output">
+			<?php wp_nonce_field( 'at_head_tag_check_output' ); ?>
+			<?php submit_button( 'Check front-end output', 'secondary', 'submit', false ); ?>
+			<p class="description">Fetches the home page with a cache-busting query and checks whether the saved snippet is actually present inside <code>&lt;head&gt;</code>.</p>
+		</form>
 		<details>
 			<summary>Tips for clean head code</summary>
 			<ul style="list-style:disc;margin-left:1.25em">

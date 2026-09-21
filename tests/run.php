@@ -16,6 +16,7 @@ $GLOBALS['options'] = array(
 $GLOBALS['cache'] = array();
 $GLOBALS['actions'] = array();
 $GLOBALS['settings_errors'] = array();
+$GLOBALS['response'] = array( 'response' => array( 'code' => 200 ), 'body' => '' );
 function add_action( ...$args ) { $GLOBALS['actions'][] = $args; }
 function add_filter( ...$args ) {}
 function register_activation_hook( ...$args ) {}
@@ -31,6 +32,8 @@ function delete_site_transient( $key ) { unset( $GLOBALS['cache'][ $key ] ); ret
 function wp_remote_get( $url, $args ) { return $GLOBALS['response']; }
 function wp_remote_retrieve_response_code( $response ) { return $response['response']['code']; }
 function wp_remote_retrieve_body( $response ) { return $response['body']; }
+function home_url( $path = '/' ) { return 'https://example.test' . $path; }
+function add_query_arg( $key, $value, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . rawurlencode( $key ) . '=' . rawurlencode( $value ); }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function esc_html( $value ) { return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ); }
 function trailingslashit( $value ) { return rtrim( $value, '/' ) . '/'; }
@@ -79,6 +82,22 @@ $GLOBALS['options']['at_head_tag_enabled'] = 0;
 ob_start();
 at_head_tag_inject_code();
 same( '', ob_get_clean(), 'Disabled output prints nothing' );
+
+$GLOBALS['options']['at_head_tag_enabled'] = 1;
+$GLOBALS['response'] = array(
+	'response' => array( 'code' => 200 ),
+	'body'     => '<html><head>' . at_head_tag_render_preview_block( $GLOBALS['options']['at_head_tag_content'] ) . '</head><body></body></html>',
+);
+same( 'success', at_head_tag_check_frontend_output(), 'Front-end check finds the exact marked snippet inside head' );
+$GLOBALS['response']['body'] = '<html><head>' . $GLOBALS['options']['at_head_tag_content'] . '</head><body></body></html>';
+same( 'markers-changed', at_head_tag_check_frontend_output(), 'Front-end check distinguishes rewritten markers from missing code' );
+$GLOBALS['response']['body'] = '<html><head><title>Test</title></head><body></body></html>';
+same( 'missing', at_head_tag_check_frontend_output(), 'Front-end check reports a missing snippet' );
+$GLOBALS['options']['at_head_tag_enabled'] = 0;
+same( 'disabled', at_head_tag_check_frontend_output(), 'Front-end check reports disabled output without making a request' );
+$GLOBALS['options']['at_head_tag_enabled'] = 1;
+same( array( 'success', 'The saved snippet was found exactly inside the home page <head>.' ), at_head_tag_output_check_notice( 'success' ), 'Output check exposes a safe known notice' );
+same( false, at_head_tag_output_check_notice( 'unknown' ), 'Unknown output-check codes are ignored' );
 
 $release = array(
 	'tag_name' => 'v1.5.0',
