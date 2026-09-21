@@ -3,7 +3,7 @@
  * Plugin Name: At Head Tag
  * Plugin URI: https://github.com/cemfirat/wordpress-at-head-tag
  * Description: Adds trusted HTML, CSS, JavaScript, meta and link snippets to the front-end <head> in WordPress.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Author: Cem Firat
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AT_HEAD_TAG_VERSION', '1.4.0' );
+define( 'AT_HEAD_TAG_VERSION', '1.4.1' );
 define( 'AT_HEAD_TAG_FILE', __FILE__ );
 define( 'AT_HEAD_TAG_OPTION', 'at_head_tag_content' );
 define( 'AT_HEAD_TAG_PRIORITY_OPTION', 'at_head_tag_priority' );
