@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="Cem Firat logo" width="120" />
+</p>
+
 # At Head Tag
 
 A small WordPress plugin for adding trusted HTML, CSS, JavaScript, meta and link snippets to the front-end `<head>`.
