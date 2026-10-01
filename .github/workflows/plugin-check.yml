@@ -1,0 +1,36 @@
+name: WordPress Plugin Check
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-check:
+    name: Official WordPress Plugin Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Build release package contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/package.py
+          BUILD_DIR="$RUNNER_TEMP/plugin-check-build"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+          unzip -q dist/at-head-tag.zip -d "$BUILD_DIR"
+          test -f "$BUILD_DIR/wordpress-at-head-tag/at-head-tag.php"
+
+      - name: Run distribution-aware WordPress Plugin Check
+        uses: cemfirat/repository-governance/blueprints/wordpress-plugin/plugin-check@161f21b0509419b73c451676893b578a7ef3db45
+        with:
+          build-dir: ${{ runner.temp }}/plugin-check-build/wordpress-at-head-tag
